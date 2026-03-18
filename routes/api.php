@@ -5,6 +5,8 @@ use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\Api\V1\AuthController as V1AuthController;
 use App\Http\Controllers\Api\V1\LawFirmController as V1LawFirmController;
 use App\Http\Controllers\Api\V1\SubscriptionController as V1SubscriptionController;
+use App\Http\Controllers\Api\V1\UserController as V1UserController;
+use App\Http\Controllers\Api\V1\DocumentController;
 
 Route::prefix('v1')->group(function () {
     // Public routes - Auth
@@ -16,7 +18,6 @@ Route::prefix('v1')->group(function () {
         // Auth routes
         Route::get('/auth/me', [V1AuthController::class, 'me']);
         Route::post('/auth/logout', [V1AuthController::class, 'logout']);
-
         // Subscription routes (System Admin only)
         Route::prefix('subscriptions')->group(function () {
             Route::get('/', [V1SubscriptionController::class, 'index']);
@@ -30,8 +31,8 @@ Route::prefix('v1')->group(function () {
 
         // User routes (Platform Admin / Firm Admin)
         Route::prefix('users')->group(function () {
-            Route::get('/', [\App\Http\Controllers\Api\V1\UserController::class, 'index']);
-            Route::post('/', [\App\Http\Controllers\Api\V1\UserController::class, 'store']);
+            Route::get('/', [V1UserController::class, 'index']);
+            Route::post('/', [V1UserController::class, 'store']);
         });
 
         // Law Firm routes (System Admin only)
@@ -45,6 +46,16 @@ Route::prefix('v1')->group(function () {
             Route::get('/trashed', [V1LawFirmController::class, 'trashed']);
             Route::post('/{firmId}/restore', [V1LawFirmController::class, 'restore']);
             Route::delete('/{firmId}/force-delete', [V1LawFirmController::class, 'forceDelete']);
+        });
+
+        // Documents Routes 
+
+        Route::prefix('documents')->group(function () {
+            Route::get('/', [DocumentController::class, 'index']);
+            Route::post('/', [DocumentController::class, 'store']);
+            Route::get('/{document}', [DocumentController::class, 'show']);
+            Route::put('/{document}', [DocumentController::class, 'update']);
+            Route::delete('/{document}', [DocumentController::class, 'destroy']);
         });
     });
 });

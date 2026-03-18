@@ -25,17 +25,12 @@ class AuthController extends BaseApiController
                 'name' => 'required|string|max:255',
                 'email' => 'required|string|email|max:255|unique:users',
                 'password' => 'required|string|min:8',
-                'role' => 'required|in:' . implode(',', \App\Models\User::ROLES),
-                'firm_id' => 'required_unless:role,SYSTEM_ADMIN|nullable|exists:law_firms,id',
+                // Registration is only used to bootstrap the platform SYSTEM_ADMIN
+                'role' => 'required|in:SYSTEM_ADMIN',
             ]);
 
-            // System admin cannot be tied to a firm (always NULL)
-            if ($validated['role'] === 'SYSTEM_ADMIN') {
-                $validated['firm_id'] = null;
-            }
-
             // Prevent more than one SYSTEM_ADMIN from being created
-            if ($validated['role'] === 'SYSTEM_ADMIN' && User::where('role', 'SYSTEM_ADMIN')->exists()) {
+            if (User::where('role', 'SYSTEM_ADMIN')->exists()) {
                 return ApiResponse::error('A SYSTEM_ADMIN already exists. You cannot create another.', null, 400);
             }
 
@@ -43,8 +38,8 @@ class AuthController extends BaseApiController
                 'name' => $validated['name'],
                 'email' => $validated['email'],
                 'password' => Hash::make($validated['password']),
-                'role' => $validated['role'],
-                'firm_id' => $validated['firm_id'] ?? null,
+                'role' => 'SYSTEM_ADMIN',
+                'firm_id' => null,
             ]);
 
             $token = $user->createToken('API Token')->plainTextToken;

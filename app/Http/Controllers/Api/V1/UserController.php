@@ -1,7 +1,6 @@
 <?php
 
 namespace App\Http\Controllers\Api\V1;
-
 use App\Http\Controllers\Api\BaseApiController;
 use App\Http\Responses\ApiResponse;
 use App\Models\LawFirm;
@@ -20,13 +19,19 @@ class UserController extends BaseApiController
     public function index()
     {
         try {
+            // Only platform admins or firm admins/system admins may list users.
+            //isPlatformAdmin add this check if isPlatformAdmin should be restricted from creating user
+            $currentUser = $this->currentUser();
+            if ($currentUser->isLawyer() || $currentUser->isClient()) {
+                return ApiResponse::forbidden('You are not allowed to list users');
+            }
+
             if ($this->isPlatformAdmin()) {
                 $users = User::with('firm')->paginate(25);
             } else {
                 $firmId = $this->getCurrentFirmId();
                 $users = User::where('firm_id', $firmId)->with('firm')->paginate(25);
             }
-
             return ApiResponse::success($users, 'Users retrieved successfully');
         } catch (\Exception $e) {
             return $this->handleException($e);
@@ -44,11 +49,16 @@ class UserController extends BaseApiController
                 'email' => 'required|string|email|max:255|unique:users,email',
                 'password' => 'required|string|min:8',
                 'role' => 'required|in:ADMIN,LAWYER,CLIENT',
-                'firm_id' => 'required|exists:law_firms,id',
+                'firm_id' => 'required|exists:law_firms,id'
             ]);
 
             $currentUser = $this->currentUser();
             $firmId = (int) $validated['firm_id'];
+
+            // Lawyers and clients cannot create users at all
+            if ($currentUser->isLawyer() || $currentUser->isClient()) {
+                return ApiResponse::forbidden('You are not allowed to create users');
+            }
 
             // Determine what the creator is allowed to create
             if ($currentUser->isPlatformAdmin()) {
@@ -106,27 +116,18 @@ class UserController extends BaseApiController
             return ApiResponse::error('Firm has no subscription plan assigned', null, 422);
         }
 
-        if ($role === 'ADMIN') {
-            $count = $firm->users()->where('role', 'ADMIN')->count();
-            if ($count >= $subscription->max_admins) {
-                return ApiResponse::error('Admin limit reached for this plan', null, 422);
+        $roleLimits = [
+            'ADMIN' => $subscription->max_admins,
+            'LAWYER' => $subscription->max_lawyers,
+            'CLIENT' => $subscription->max_clients,
+        ];
+
+        if (isset($roleLimits[$role])) {
+            $count = $firm->users()->where('role', $role)->count();
+            if ($count >= $roleLimits[$role]) {
+                return ApiResponse::error("{$role} limit reached for this plan", null, 422);
             }
         }
-
-        if ($role === 'LAWYER') {
-            $count = $firm->users()->where('role', 'LAWYER')->count();
-            if ($count >= $subscription->max_lawyers) {
-                return ApiResponse::error('Lawyer limit reached for this plan', null, 422);
-            }
-        }
-
-        if ($role === 'CLIENT') {
-            $count = $firm->users()->where('role', 'CLIENT')->count();
-            if ($count >= $subscription->max_clients) {
-                return ApiResponse::error('Client limit reached for this plan', null, 422);
-            }
-        }
-
         return null;
     }
 }

@@ -129,7 +129,10 @@ trait HasRoleAndPermissions
         ];
 
         // Add firm name if user belongs to a firm
-        if ($this->firm_id !== null && $this->firm) {
+        // if ($this->firm_id !== null && $this->firm) {
+        //     $context['firm_name'] = $this->firm->name;
+        // }
+        if ($this->relationLoaded('firm') && $this->firm) {
             $context['firm_name'] = $this->firm->name;
         }
 
