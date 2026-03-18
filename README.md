@@ -28,6 +28,8 @@ app/
 │           └── V1/                    # Version 1 API Controllers
 │               ├── AuthController.php
 │               └── LawFirmController.php
+                └── DocumentController.php
+
 ├── Models/
 │   ├── User.php
 │   ├── LawFirm.php
@@ -157,11 +159,8 @@ audit_logs
 
 ### File Upload Security (Future Implementation)
 
-- Validation: File type, size, virus scanning
+- Validation: File type, size
 - Storage: Private S3 bucket or encrypted local storage
-- Access Control: Signed URLs with expiration
-- Audit Trail: Track all document access
-
 ---
 
 ## Multi-Tenancy Strategy
@@ -175,7 +174,6 @@ audit_logs
 
 **Future Considerations**:
 - Domain-based routing: `firmname.legal-saas.com`
-- Subdomain detection in middleware
 - Header-based tenant identification for mobile apps
 
 ### Data Isolation Layers

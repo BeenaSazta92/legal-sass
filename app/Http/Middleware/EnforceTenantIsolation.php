@@ -19,10 +19,10 @@ class EnforceTenantIsolation extends Middleware
     {
         // Store user's firm context in request
         if ($request->user()) {
+           // $request->attributes->set('tenant_user', $user); 
             $request->attributes->set('tenant_firm_id', $request->user()->firm_id);
             $request->attributes->set('user_role', $request->user()->role);
         }
-
         return $next($request);
     }
 }

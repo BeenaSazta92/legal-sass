@@ -53,9 +53,11 @@ Route::prefix('v1')->group(function () {
         Route::prefix('documents')->group(function () {
             Route::get('/', [DocumentController::class, 'index']);
             Route::post('/', [DocumentController::class, 'store']);
+            Route::get('/shared-with-me', [DocumentController::class, 'sharedWithMe']);
             Route::get('/{document}', [DocumentController::class, 'show']);
             Route::put('/{document}', [DocumentController::class, 'update']);
             Route::delete('/{document}', [DocumentController::class, 'destroy']);
+            Route::post('/{document}/share', [DocumentController::class, 'share']);
         });
     });
 });

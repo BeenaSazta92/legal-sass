@@ -3,9 +3,11 @@
 namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
+use App\Models\Traits\AuditLogs;
 
 class DocumentShare extends Model
 {
+    use AuditLogs;
     protected $fillable = [
         'firm_id',
         'document_id',

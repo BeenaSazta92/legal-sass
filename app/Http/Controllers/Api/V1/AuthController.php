@@ -96,8 +96,8 @@ class AuthController extends BaseApiController
     public function me(Request $request)
     {
         try {
+           
             $user = $request->user()->load('firm');
-            
             return ApiResponse::success([
                 'user' => $user,
                 'context' => $user->getContext(),

@@ -3,7 +3,7 @@
 namespace App\Http\Controllers\Api\V1;
 use App\Http\Controllers\Api\BaseApiController;
 use App\Http\Responses\ApiResponse;
-use App\Models\Document;
+use App\Models\{Document,DocumentShare,User};
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Storage;
 
@@ -63,8 +63,20 @@ class DocumentController extends BaseApiController
         ]);
 
         $filename = $document->id . '_' . $originalName;
-        $path = $file->storeAs('documents', $filename);
-        $document->update(['file_path' => $path]);
+        // default storage disk
+        try{
+            $disk = config('filesystems.default');
+            $path = Storage::disk($disk)->putFileAs(
+                "documents/firm_{$user->firm_id}",
+                $file,
+                $filename
+            );
+            //$path = $file->storeAs('documents', $filename);
+            $document->update(['file_path' => $path]);
+        }catch (\Exception $e) {
+            $document->delete(); // rollback DB record
+            return ApiResponse::error('File upload failed: ' . $e->getMessage(), null, 500);
+        }
         return ApiResponse::success($document, 'Document uploaded successfully', 201);
     }
 
@@ -136,5 +148,78 @@ class DocumentController extends BaseApiController
         $document->delete();
 
         return ApiResponse::success(null, 'Document deleted successfully');
+    }
+
+       /**
+     * Share a document with a client
+     * POST /documents/{id}/share
+     */
+    public function share(Request $request, Document $document)
+    {
+        $user = $this->currentUser();
+        // Only lawyers can share
+        if (!$user->isLawyer()) {
+            return response()->json(['message' => 'You are not allowed to perform this action'], 403);
+        }
+
+        // Tenant isolation ....
+        if ($user->firm_id !== $document->firm_id) {
+            return response()->json(['message' => 'Cannot share documents outside your firm'], 403);
+        }
+
+        $request->validate([
+            'shared_with_user_id' => 'required|exists:users,id',
+            'permission' => 'required|in:VIEW,EDIT',
+        ]);
+
+        $targetUser = User::findOrFail($request->shared_with_user_id);
+
+        // Only clients in the same firm
+        if (!$targetUser->isClient() || $targetUser->firm_id !== $user->firm_id) {
+            return response()->json(['message' => 'Document Can only be shared with clients in your firm'], 422);
+        }
+
+        // Create or update share
+        $share = DocumentShare::Create(
+            [
+                'document_id' => $document->id,
+                'shared_with_user_id' => $targetUser->id,
+                'firm_id' =>$user->firm_id
+            ],
+            [
+                'permission' => $request->permission,
+            ]
+        );
+
+        return response()->json([
+            'message' => 'Document shared successfully',
+            'share' => $share,
+        ], 201);
+    }
+
+    /**
+     * Get all documents shared with the current client
+     * GET /documents/shared-with-me
+     */
+    public function sharedWithMe(Request $request)
+    {
+        $user = $this->currentUser();
+
+        if (!$user->isClient()) {
+            return response()->json(['message' => 'Only clients can access this endpoint'], 403);
+        }
+        // $documents = $user->sharedDocuments('')->paginate(25);
+        $documents = $user->sharedDocuments()->wherePivot('permission', 'VIEW')->select([
+            'documents.id',
+            'documents.title',
+            'documents.description',
+            'documents.file_path',
+            'documents.owner_id',
+            'documents.firm_id',
+            'documents.created_at',
+            'documents.updated_at',
+        ])->paginate(25);
+        return ApiResponse::success($documents, 'Documents retrieved successfully');
+
     }
 }

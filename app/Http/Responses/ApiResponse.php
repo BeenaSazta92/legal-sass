@@ -43,7 +43,7 @@ class ApiResponse
     /**
      * Unauthorized response
      */
-    public static function unauthorized($message = 'Unauthorized')
+    public static function unauthorized($message = 'You are not authorized to perform this action')
     {
         return response()->json([
             'success' => false,

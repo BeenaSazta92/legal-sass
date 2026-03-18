@@ -60,7 +60,6 @@ class LawFirmController extends BaseApiController
                 'subscription_id' => $subscriptionId,
                 'status' => 'active',
             ]);
-
             return ApiResponse::success($firm, 'Law firm created successfully', 201);
         } catch (ValidationException $e) {
             return ApiResponse::validationError($e->errors(), 'Validation failed');
