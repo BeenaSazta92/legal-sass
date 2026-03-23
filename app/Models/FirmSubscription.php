@@ -2,8 +2,11 @@
 
 namespace App\Models;
 use Illuminate\Database\Eloquent\Model;
+use App\Models\Traits\BelongsToFirm;
+
 class FirmSubscription extends Model
 {
+    use BelongsToFirm;
     public $timestamps = false;
 
     protected $fillable = [

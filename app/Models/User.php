@@ -1,10 +1,9 @@
 <?php
 
 namespace App\Models;
-
 // use Illuminate\Contracts\Auth\MustVerifyEmail;
 use App\Casts\RoleCast;
-use App\Models\Traits\HasRoleAndPermissions;
+use App\Models\Traits\{HasRoleAndPermissions,BelongsToFirm};
 use Database\Factories\UserFactory;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Foundation\Auth\User as Authenticatable;
@@ -14,8 +13,7 @@ use Laravel\Sanctum\HasApiTokens;
 class User extends Authenticatable
 {
     /** @use HasFactory<UserFactory> */
-    use HasFactory, Notifiable, HasApiTokens, HasRoleAndPermissions;
-
+    use HasFactory, Notifiable, HasApiTokens, HasRoleAndPermissions,BelongsToFirm;
     /**
      * Allowed user roles
      */
@@ -83,7 +81,7 @@ class User extends Authenticatable
         return $this->hasMany(AuditLog::class);
     }
 
-        protected static function booted()
+    protected static function booted()
     {
         static::creating(function ($user) {
             if (!in_array($user->role, self::ROLES)) {

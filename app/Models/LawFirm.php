@@ -8,10 +8,11 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\SoftDeletes;
 use App\Models\{FirmSubscription,AppSetting};
 use Illuminate\Support\Facades\DB;
+use App\Models\Traits\AuditLogs;
 
 class LawFirm extends Model
 {
-    use HasFactory, SoftDeletes;
+    use HasFactory, SoftDeletes,AuditLogs;
 
     protected $fillable = [
         'name',
@@ -76,7 +77,6 @@ class LawFirm extends Model
         if (!$defaultId) {
             throw new \Exception('Default subscription not configured');
         }
-
         return self::findOrFail($defaultId);
     }
 }

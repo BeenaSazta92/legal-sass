@@ -72,4 +72,5 @@ class ApiResponse
             'message' => $message,
         ], 404);
     }
+
 }

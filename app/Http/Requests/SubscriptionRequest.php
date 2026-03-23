@@ -28,7 +28,7 @@ class SubscriptionRequest extends FormRequest
             'max_lawyers' => 'required|integer|min:1|max:1000',
             'max_clients' => 'required|integer|min:1|max:10000',
             'max_documents_per_user' => 'required|integer|min:1|max:10000',
-            'is_default' => 'sometimes|boolean' // its optional its just used to manage status of default subscription
+            'is_default' => 'required|boolean' //used to manage status of default subscription
         ];
     }
 }

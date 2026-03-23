@@ -6,7 +6,9 @@ use App\Http\Responses\ApiResponse;
 use App\Models\{Document,DocumentShare,User};
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Storage;
-use App\Http\Request\StoreDocumentRequest;
+use App\Http\Requests\StoreDocumentRequest;
+use Illuminate\Auth\Access\AuthorizationException;
+
 
 class DocumentController extends BaseApiController
 {
@@ -35,16 +37,15 @@ class DocumentController extends BaseApiController
     public function store(StoreDocumentRequest $request)
     {
         $user = $this->currentUser();
-
         if (!$user->isLawyer()) {
             return ApiResponse::forbidden('Only lawyers can upload documents');
         }
 
-        $request->validated();
+        $data = $request->validated();
 
         // Check subscription limit
         $docCount = Document::where('owner_id', $user->id)->count();
-        if ($docCount >= $user->firm->subscription->max_documents_per_user) {
+        if ($docCount >= $user->firm->currentSubscription->max_documents_per_user) {
             return ApiResponse::error('Document upload limit reached', null, 422);
         }
         //$path = $request->file('file')->store('documents');
@@ -52,7 +53,7 @@ class DocumentController extends BaseApiController
         $originalName = preg_replace('/[^A-Za-z0-9.\-_]/', '_', $file->getClientOriginalName());
 
         $document = Document::create([
-            ...$request,
+            ...$data,
             'file_path' => '',//$path,
             'owner_id' => $user->id,
             'firm_id' => $user->firm_id,
@@ -84,8 +85,7 @@ class DocumentController extends BaseApiController
         $user = $this->currentUser();
 
         // Lawyer/firms access their firm's documents
-        if (($user->isLawyer() || $user->isFirmAdmin() || $user->isFirmSystemAdmin()) 
-            && $user->firm_id === $document->firm_id) {
+        if (($user->isLawyer() || $user->isFirmAdmin()) && $user->firm_id === $document->firm_id) {
             return ApiResponse::success($document);
         }
 
@@ -137,12 +137,11 @@ class DocumentController extends BaseApiController
     {
         $user = $this->currentUser();
 
-        if (!($user->isPlatformAdmin() || $user->isFirmSystemAdmin() || $user->isFirmAdmin() || ($user->isLawyer() && $document->owner_id == $user->id))) {
+        if (!($user->isFirmAdmin() || ($user->isLawyer() && $document->owner_id == $user->id))) {
             return ApiResponse::forbidden();
         }
-
+        $document->shares()->delete();
         $document->delete();
-
         return ApiResponse::success(null, 'Document deleted successfully');
     }
 
@@ -155,21 +154,20 @@ class DocumentController extends BaseApiController
         $user = $this->currentUser();
         // Only lawyers can share
         if (!$user->isLawyer()) {
-            return response()->json(['message' => 'You are not allowed to perform this action'], 403);
+            throw new AuthorizationException('You are not allowed to perform this action');
         }
 
         // Tenant isolation ....
         if ($user->firm_id !== $document->firm_id) {
-            return response()->json(['message' => 'Cannot share documents outside your firm'], 403);
+            throw new AuthorizationException('Cannot share documents outside your firm');
         }
 
-        $request->validate([
+        $validated = $request->validate([
             'shared_with_user_id' => 'required|exists:users,id',
             'permission' => 'required|in:VIEW,EDIT',
         ]);
 
-        $targetUser = User::findOrFail($request->shared_with_user_id);
-
+        $targetUser = User::withoutGlobalScopes()->findOrFail($validated['shared_with_user_id']);
         // Only clients in the same firm
         if (!$targetUser->isClient() || $targetUser->firm_id !== $user->firm_id) {
             return response()->json(['message' => 'Document Can only be shared with clients in your firm'], 422);
@@ -204,16 +202,17 @@ class DocumentController extends BaseApiController
         if (!$user->isClient()) {
             return response()->json(['message' => 'Only clients can access this endpoint'], 403);
         }
-        // $documents = $user->sharedDocuments('')->paginate(25);
-        $documents = $user->sharedDocuments()->wherePivot('permission', 'VIEW')->select([
+ 
+        $documents = $user->sharedDocuments()->withoutGlobalScopes()->wherePivot('permission', 'VIEW')->select([
             'documents.id',
             'documents.title',
             'documents.description',
             'documents.file_path',
             'documents.owner_id',
-            'documents.firm_id'
+            'documents.firm_id',
+            'documents.created_at',
+            'documents.updated_at',
         ])->paginate(25);
-        return ApiResponse::success($documents, 'Documents retrieved successfully');
-
+        return ApiResponse::success($documents, 'Shared Documents retrieved successfully');
     }
 }

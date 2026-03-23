@@ -8,7 +8,8 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Validation\ValidationException;
-use App\Http\Request\{AuthRegisterRequest,AuthLoginRequest};
+use App\Http\RequestS\{AuthRegisterRequest,AuthLoginRequest};
+
 
 class AuthController extends BaseApiController
 {

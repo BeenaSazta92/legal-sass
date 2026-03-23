@@ -3,9 +3,11 @@
 namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
+use App\Models\Traits\{HasRoleAndPermissions,BelongsToFirm};
 
 class Document extends Model
 {
+    use BelongsToFirm,HasRoleAndPermissions;
     protected $fillable = [
         'firm_id',
         'owner_id',

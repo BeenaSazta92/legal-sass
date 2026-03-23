@@ -4,10 +4,11 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
 use App\Models\Traits\AuditLogs;
+use App\Models\Traits\{HasRoleAndPermissions,BelongsToFirm};
 
 class DocumentShare extends Model
 {
-    use AuditLogs;
+    use BelongsToFirm,HasRoleAndPermissions,AuditLogs;
     protected $fillable = [
         'firm_id',
         'document_id',
@@ -17,7 +18,7 @@ class DocumentShare extends Model
 
     public function firm()
     {
-        return $this->belongsTo(LawFirm::class);
+        return $this->belongsTo(LawFirm::class,'firm_id');
     }
 
     public function document()

@@ -6,7 +6,7 @@ use App\Http\Responses\ApiResponse;
 use App\Models\User;
 use App\Services\UserService;
 use App\Http\Requests\UserRequest;
-
+use Illuminate\Http\Request;
 
 class UserController extends BaseApiController
 {
@@ -48,7 +48,6 @@ class UserController extends BaseApiController
      */
     public function store(UserRequest $request)
     {
-        
         try {
             $currentUser = $this->currentUser();
             $newUser = $this->userService->createUser($request->validated(), $currentUser);
@@ -56,6 +55,26 @@ class UserController extends BaseApiController
             return ApiResponse::success($newUser, 'User created successfully', 201);
         } catch (\Exception $e) {
             return $this->handleException($e);
+        }
+    }
+    
+    /**
+     * Get authenticated user with context
+     * 
+     * @param Request $request
+     * @return \Illuminate\Http\JsonResponse
+     */
+    public function me(Request $request)
+    {
+        try {
+           
+            $user = $request->user();//->load('firm');
+            return ApiResponse::success([
+                'user' => $user,
+                // 'context' => $user->getContext(),
+            ], 'User profile retrieved successfully');
+        } catch (\Exception $e) {
+            return ApiResponse::error($e->getMessage(), null, 500);
         }
     }
 }

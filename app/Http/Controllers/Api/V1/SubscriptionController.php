@@ -9,6 +9,7 @@ use Illuminate\Http\Request;
 use Illuminate\Validation\ValidationException;
 use App\Http\Requests\{SubscriptionRequest,UpdateSubscriptionRequest};
 use App\Services\SubscriptionService;
+use App\Models\AppSetting;
 
 class SubscriptionController extends BaseApiController
 {
@@ -31,9 +32,8 @@ class SubscriptionController extends BaseApiController
             if ($authError) {
                 return $authError;
             }
-
-            $subscriptions = Subscription::with('lawFirms')->paginate(15);
-
+            // $subscriptions = Subscription::with('lawFirms')->paginate(15);$subscriptions = Subscription::with(['firmSubscriptions.lawFirm'])->paginate(15);
+            $subscriptions = Subscription::paginate(15);
             return ApiResponse::success($subscriptions, 'Subscription plans retrieved successfully');
         } catch (\Exception $e) {
             return $this->handleException($e);
@@ -53,7 +53,7 @@ class SubscriptionController extends BaseApiController
             $authError = $this->authorizePlatformAdmin();
             if ($authError) return $authError;
 
-            $validated = $request->validate();
+            $validated = $request->validated();
 
             $subscription = Subscription::create($validated);
             if ($request->boolean('is_default')) {
@@ -99,7 +99,7 @@ class SubscriptionController extends BaseApiController
             $authError = $this->authorizePlatformAdmin();
             if ($authError) return $authError;
 
-            $validated = $request->validate();
+            $validated = $request->validated();
             $subscription->update($validated);
             if ($request->boolean('is_default')) {
                 $this->subscriptionService->changeDefault($subscription->id);
@@ -125,21 +125,22 @@ class SubscriptionController extends BaseApiController
         try {
             // Only platform admin can delete subscription plans
             $authError = $this->authorizePlatformAdmin();
-            if ($authError) {
-                return $authError;
-            }
+            if ($authError) return $authError;
 
             // Check if subscription is being used by any firms
-            if ($subscription->lawFirms()->count() > 0) {
+            if ($subscription->firmSubscriptions()->count() > 0) {
                 return ApiResponse::error(
                     'Cannot delete subscription plan that is currently assigned to law firms',
                     null,
                     409
                 );
             }
+            $defaultId = AppSetting::getSetting('default_subscription_id');
+            if ($defaultId && $defaultId == $subscription->id) {
+                AppSetting::setSetting('default_subscription_id', null);
+            }
 
             $subscription->delete();
-
             return ApiResponse::success(null, 'Subscription plan deleted successfully');
         } catch (\Exception $e) {
             return $this->handleException($e);

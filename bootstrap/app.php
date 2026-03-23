@@ -13,6 +13,16 @@ return Application::configure(basePath: dirname(__DIR__))
     )
     ->withMiddleware(function (Middleware $middleware): void {
         // Ensure unauthenticated API requests do not attempt to redirect to a login route.
+        // ------------------------
+        // Custom Middleware
+        // ------------------------
+
+        // Tenant isolation middleware
+        //$middleware->push(\App\Http\Middleware\EnforceTenantIsolation::class);
+        $middleware->alias([
+            'tenantIsolation' => \App\Http\Middleware\EnforceTenantIsolation::class
+        ]);
+
         $middleware->redirectGuestsTo(fn () => null);
     })
     ->withExceptions(function (Exceptions $exceptions): void {

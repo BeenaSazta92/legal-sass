@@ -24,7 +24,7 @@ class LawFirmStoreRequest extends FormRequest
     {
         return [
             'name' => 'required|string|max:255|unique:law_firms,name',
-            'subscription_id' => 'required|exists:subscriptions,id',
+            'subscription_id' => 'nullable|exists:subscriptions,id',
         ];
     }
 }

@@ -12,7 +12,6 @@ use Illuminate\Validation\ValidationException;
 use App\Services\SubscriptionService;
 use App\Http\Requests\{LawFirmStoreRequest,UpdateLawFirmRequest};
 
-
 class LawFirmController extends BaseApiController
 {
 
@@ -56,17 +55,20 @@ class LawFirmController extends BaseApiController
             if ($authError) return $authError;
 
             $validated = $request->validated();
-            //$subscriptionId = $validated['subscription_id'] ?? $this->getDefaultSubscriptionId();
+            $subscriptionId = $validated['subscription_id'] ?? $this->getDefaultSubscriptionId();
+            if (!$subscriptionId || !Subscription::where('id', $subscriptionId)->exists()) {
+                return ApiResponse::error(
+                    'Cannot create firm: no valid subscription provided',
+                    null,
+                    422
+                );
+            }
 
             $firm = LawFirm::create([
                 'name' => $validated['name'],
                 'status' => 'active',
             ]);
-            if (!empty($validated['subscription_id'])) {
-                $firm->changeSubscription(Subscription::findOrFail($validated['subscription_id']));
-            } else {
-                $firm->assignDefaultSubscription();
-            }
+            $firm->changeSubscription(Subscription::findOrFail($subscriptionId));
             return ApiResponse::success($firm, 'Law firm created successfully', 201);
         } catch (ValidationException $e) {
             return ApiResponse::validationError($e->errors(), 'Validation failed');

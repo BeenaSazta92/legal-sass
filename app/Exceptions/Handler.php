@@ -53,8 +53,13 @@ class Handler extends ExceptionHandler
         // Always return JSON for API requests (avoid redirect to missing login route)
         if ($request->is('api/*') || $request->wantsJson()) {
             return ApiResponse::unauthorized($exception->getMessage());
+            // return ApiResponse::error(
+            //     'Your token is invalid or expired. Please login again.',
+            //     null,
+            //     401
+            // );
         }
-
         return parent::unauthenticated($request, $exception);
     }
+    
 }
