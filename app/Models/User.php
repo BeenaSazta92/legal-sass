@@ -10,7 +10,6 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
 use Laravel\Sanctum\HasApiTokens;
-// use Spatie\Permission\Traits\HasRoles;
 
 class User extends Authenticatable
 {
@@ -82,5 +81,14 @@ class User extends Authenticatable
     public function auditLogs()
     {
         return $this->hasMany(AuditLog::class);
+    }
+
+        protected static function booted()
+    {
+        static::creating(function ($user) {
+            if (!in_array($user->role, self::ROLES)) {
+                throw new \InvalidArgumentException('Invalid role');
+            }
+        });
     }
 }

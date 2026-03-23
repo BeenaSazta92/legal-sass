@@ -9,9 +9,18 @@ use App\Models\Subscription;
 use App\Models\AppSetting;
 use Illuminate\Http\Request;
 use Illuminate\Validation\ValidationException;
+use App\Services\SubscriptionService;
+use App\Http\Requests\{LawFirmStoreRequest,UpdateLawFirmRequest};
+
 
 class LawFirmController extends BaseApiController
 {
+
+    protected SubscriptionService $subscriptionService;
+    public function __construct(SubscriptionService $subscriptionService)
+    {
+        $this->subscriptionService = $subscriptionService;
+    }
     /**
      * Display a listing of all law firms (Platform Admin only)
      * 
@@ -26,7 +35,7 @@ class LawFirmController extends BaseApiController
                 return $authError;
             }
 
-            $firms = LawFirm::with('subscription', 'users')->paginate(15);
+            $firms = LawFirm::with('currentSubscription', 'users')->paginate(15);
             return ApiResponse::success($firms, 'Law firms retrieved successfully');
         } catch (\Exception $e) {
             return $this->handleException($e);
@@ -39,27 +48,25 @@ class LawFirmController extends BaseApiController
      * @param Request $request
      * @return \Illuminate\Http\JsonResponse
      */
-    public function store(Request $request)
+    public function store(LawFirmStoreRequest $request)
     {
         try {
             // Only platform admin can create firms
             $authError = $this->authorizePlatformAdmin();
-            if ($authError) {
-                return $authError;
-            }
+            if ($authError) return $authError;
 
-            $validated = $request->validate([
-                'name' => 'required|string|max:255|unique:law_firms,name',
-                'subscription_id' => 'nullable|exists:subscriptions,id',
-            ]);
-
-            $subscriptionId = $validated['subscription_id'] ?? $this->getDefaultSubscriptionId();
+            $validated = $request->validated();
+            //$subscriptionId = $validated['subscription_id'] ?? $this->getDefaultSubscriptionId();
 
             $firm = LawFirm::create([
                 'name' => $validated['name'],
-                'subscription_id' => $subscriptionId,
                 'status' => 'active',
             ]);
+            if (!empty($validated['subscription_id'])) {
+                $firm->changeSubscription(Subscription::findOrFail($validated['subscription_id']));
+            } else {
+                $firm->assignDefaultSubscription();
+            }
             return ApiResponse::success($firm, 'Law firm created successfully', 201);
         } catch (ValidationException $e) {
             return ApiResponse::validationError($e->errors(), 'Validation failed');
@@ -79,11 +86,8 @@ class LawFirmController extends BaseApiController
         try {
             // Only platform admin can view firm details
             $authError = $this->authorizePlatformAdmin();
-            if ($authError) {
-                return $authError;
-            }
-
-            $firm->load('subscription', 'users', 'documents');
+            if ($authError) return $authError;
+            $firm->load('currentSubscription', 'users', 'documents');
             return ApiResponse::success($firm, 'Law firm retrieved successfully');
         } catch (\Exception $e) {
             return $this->handleException($e);
@@ -97,25 +101,33 @@ class LawFirmController extends BaseApiController
      * @param LawFirm $firm
      * @return \Illuminate\Http\JsonResponse
      */
-    public function update(Request $request, LawFirm $firm)
+    public function update(UpdateLawFirmRequest $request, LawFirm $firm)
     {
         try {
             // Only platform admin can update firms
             $authError = $this->authorizePlatformAdmin();
-            if ($authError) {
-                return $authError;
+            if ($authError) return $authError;
+
+            $validated = $request->validated();
+
+            //$firm->update($validated);
+            $firm->update(collect($validated)->except('subscription_id')->toArray());
+
+            // Handle plan change
+            // if (isset($validated['subscription_id'])) {
+            //     $plan = Subscription::findOrFail($validated['subscription_id']);
+            //     $firm->changeSubscription($plan);
+            // }
+
+            if (isset($validated['subscription_id'])) {
+                $newPlan = Subscription::findOrFail($validated['subscription_id']);
+                $this->subscriptionService->syncFirmSubscription($firm, $newPlan);
             }
+            return ApiResponse::success(
+                $firm->load('currentSubscription'),
+                'Law firm updated successfully'
+            );
 
-            $validated = $request->validate([
-                'name' => 'sometimes|required|string|max:255|unique:law_firms,name,' . $firm->id,
-                'subscription_id' => 'sometimes|required|exists:subscriptions,id',
-                'status' => 'sometimes|required|in:active,suspended',
-            ]);
-
-            $firm->update($validated);
-            $firm->refresh(); // Reload the model with updated data
-
-            return ApiResponse::success($firm, 'Law firm updated successfully');
         } catch (ValidationException $e) {
             return ApiResponse::validationError($e->errors(), 'Validation failed');
         } catch (\Exception $e) {
@@ -177,7 +189,7 @@ class LawFirmController extends BaseApiController
                 return $authError;
             }
 
-            $trashedFirms = LawFirm::onlyTrashed()->with('subscription')->paginate(15);
+            $trashedFirms = LawFirm::onlyTrashed()->with('currentSubscription')->paginate(15);
 
             return ApiResponse::success($trashedFirms, 'Trashed law firms retrieved successfully');
         } catch (\Exception $e) {

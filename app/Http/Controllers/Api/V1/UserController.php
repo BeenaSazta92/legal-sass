@@ -52,12 +52,7 @@ class UserController extends BaseApiController
         try {
             $currentUser = $this->currentUser();
             $newUser = $this->userService->createUser($request->validated(), $currentUser);
-
-            // If service returns ApiResponse (permission error), return directly
-            if ($newUser instanceof ApiResponse) {
-                return $newUser;
-            }
-
+            if ($newUser instanceof ApiResponse) return $newUser;
             return ApiResponse::success($newUser, 'User created successfully', 201);
         } catch (\Exception $e) {
             return $this->handleException($e);

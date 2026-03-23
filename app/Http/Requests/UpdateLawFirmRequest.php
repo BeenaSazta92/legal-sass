@@ -5,7 +5,7 @@ namespace App\Http\Requests;
 use Illuminate\Contracts\Validation\ValidationRule;
 use Illuminate\Foundation\Http\FormRequest;
 
-class SubscriptionRequest extends FormRequest
+class UpdateLawFirmRequest extends FormRequest
 {
     /**
      * Determine if the user is authorized to make this request.
@@ -22,13 +22,11 @@ class SubscriptionRequest extends FormRequest
      */
     public function rules(): array
     {
+        $firmId = $this->route('firm')->id ?? null;
         return [
-            'name' => 'required|string|max:255|unique:subscriptions',
-            'max_admins' => 'required|integer|min:1|max:100',
-            'max_lawyers' => 'required|integer|min:1|max:1000',
-            'max_clients' => 'required|integer|min:1|max:10000',
-            'max_documents_per_user' => 'required|integer|min:1|max:10000',
-            'is_default' => 'sometimes|boolean' // its optional its just used to manage status of default subscription
+            'name' => 'sometimes|required|string|max:255|unique:law_firms,name,' . $firmId,
+            'subscription_id' => 'sometimes|required|exists:subscriptions,id',
+            'status' => 'sometimes|required|in:active,suspended',
         ];
     }
 }

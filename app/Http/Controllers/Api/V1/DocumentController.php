@@ -6,6 +6,7 @@ use App\Http\Responses\ApiResponse;
 use App\Models\{Document,DocumentShare,User};
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Storage;
+use App\Http\Request\StoreDocumentRequest;
 
 class DocumentController extends BaseApiController
 {
@@ -31,7 +32,7 @@ class DocumentController extends BaseApiController
     /**
      * Upload a new document
      */
-    public function store(Request $request)
+    public function store(StoreDocumentRequest $request)
     {
         $user = $this->currentUser();
 
@@ -39,11 +40,7 @@ class DocumentController extends BaseApiController
             return ApiResponse::forbidden('Only lawyers can upload documents');
         }
 
-        $request->validate([
-            'title' => 'required|string|max:255',
-            'description' => 'nullable|string',
-            'file' => 'required|file|mimes:pdf,docx,jpg,png|max:10240', // 10MB
-        ]);
+        $request->validated();
 
         // Check subscription limit
         $docCount = Document::where('owner_id', $user->id)->count();
@@ -55,8 +52,7 @@ class DocumentController extends BaseApiController
         $originalName = preg_replace('/[^A-Za-z0-9.\-_]/', '_', $file->getClientOriginalName());
 
         $document = Document::create([
-            'title' => $request->title,
-            'description' => $request->description,
+            ...$request,
             'file_path' => '',//$path,
             'owner_id' => $user->id,
             'firm_id' => $user->firm_id,
@@ -215,9 +211,7 @@ class DocumentController extends BaseApiController
             'documents.description',
             'documents.file_path',
             'documents.owner_id',
-            'documents.firm_id',
-            'documents.created_at',
-            'documents.updated_at',
+            'documents.firm_id'
         ])->paginate(25);
         return ApiResponse::success($documents, 'Documents retrieved successfully');
 

@@ -1,7 +1,6 @@
 <?php
 
 namespace App\Http\Controllers\Api\V1;
-
 use App\Http\Controllers\Api\BaseApiController;
 use App\Http\Responses\ApiResponse;
 use App\Models\User;
@@ -9,6 +8,7 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Validation\ValidationException;
+use App\Http\Request\{AuthRegisterRequest,AuthLoginRequest};
 
 class AuthController extends BaseApiController
 {
@@ -18,32 +18,27 @@ class AuthController extends BaseApiController
      * @param Request $request
      * @return \Illuminate\Http\JsonResponse
      */
-    public function register(Request $request)
+    public function register(AuthRegisterRequest $request)
     {
         try {
-            $validated = $request->validate([
-                'name' => 'required|string|max:255',
-                'email' => 'required|string|email|max:255|unique:users',
-                'password' => 'required|string|min:8',
-                // Registration is only used to bootstrap the platform SYSTEM_ADMIN
-                'role' => 'required|in:SYSTEM_ADMIN',
-            ]);
-
-            // Prevent more than one SYSTEM_ADMIN from being created
-            if (User::where('role', 'SYSTEM_ADMIN')->exists()) {
-                return ApiResponse::error('A SYSTEM_ADMIN already exists. You cannot create another.', null, 400);
+            $validated = $request->validated();
+             // Prevent multiple SYSTEM_ADMIN safely
+            if (User::where('role', 'SYSTEM_ADMIN')->lockForUpdate()->exists()) {
+                throw new \Exception('A SYSTEM_ADMIN already exists.');
             }
 
+            // Prevent more than one SYSTEM_ADMIN from being created
+            // if (User::where('role', 'SYSTEM_ADMIN')->exists()) {
+            //     return ApiResponse::error('A SYSTEM_ADMIN already exists. You cannot create another.', null, 400);
+            // }
+
             $user = User::create([
-                'name' => $validated['name'],
-                'email' => $validated['email'],
-                'password' => Hash::make($validated['password']),
+                ...$validated,
                 'role' => 'SYSTEM_ADMIN',
                 'firm_id' => null,
             ]);
 
             $token = $user->createToken('API Token')->plainTextToken;
-
             return ApiResponse::success([
                 'user' => $user,
                 'token' => $token,
@@ -61,21 +56,16 @@ class AuthController extends BaseApiController
      * @param Request $request
      * @return \Illuminate\Http\JsonResponse
      */
-    public function login(Request $request)
+    public function login(AuthLoginRequest $request)
     {
         try {
-            $validated = $request->validate([
-                'email' => 'required|string|email',
-                'password' => 'required|string',
-            ]);
+            $validated = $request->validated();
 
             if (!Auth::attempt($validated)) {
                 return ApiResponse::unauthorized('Invalid email or password');
             }
-
             $user = Auth::user();
             $token = $user->createToken('API Token')->plainTextToken;
-
             return ApiResponse::success([
                 'user' => $user,
                 'token' => $token,
