@@ -576,24 +576,6 @@ Role: SYSTEM_ADMIN
 - [ ] Revoke access
 - [ ] Shared document listing
 
-### Phase 5: Billing & Subscriptions
-- [ ] Stripe integration
-- [ ] Subscription management
-- [ ] Invoice generation
-- [ ] Usage tracking
-
-### Phase 6: Administration
-- [ ] Audit log view (admin dashboard)
-- [ ] User activity tracking
-- [ ] Firm analytics
-- [ ] Export reports
-
-### Phase 7: Advanced Features
-- [ ] Email notifications
-- [ ] Two-factor authentication
-- [ ] SSO integration
-- [ ] Document search/indexing
-- [ ] Organization hierarchies
 
 ---
 
