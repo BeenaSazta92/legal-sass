@@ -18,7 +18,8 @@ class FirmSubscription extends Model
         'max_clients',
         'max_documents_per_user',
         'started_at',
-        'ended_at'
+        'ended_at',
+        'is_default_assigned'
     ];
 
     public function firm()
@@ -32,7 +33,7 @@ class FirmSubscription extends Model
     }
 
     // Create snapshot from template
-    public static function createFromTemplate(LawFirm $firm, Subscription $subscription)
+    public static function createFromTemplate(LawFirm $firm, Subscription $subscription, bool $isDefault = false)
     {
         
         if ($firm->currentSubscription) {
@@ -47,6 +48,7 @@ class FirmSubscription extends Model
             'max_clients' => $subscription->max_clients,
             'max_documents_per_user' => $subscription->max_documents_per_user,
             'started_at' => now(),
+            'is_default_assigned' => $isDefault
         ]);
     }
 }

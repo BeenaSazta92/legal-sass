@@ -13,7 +13,13 @@ use App\Models\Traits\AuditLogs;
 class LawFirm extends Model
 {
     use HasFactory, SoftDeletes,AuditLogs;
-
+     /**
+     * Allowed user roles
+     */
+    public const STATUS = [
+        'active',
+        'suspended',
+    ];
     protected $fillable = [
         'name',
         'current_subscription_id',

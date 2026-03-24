@@ -7,6 +7,7 @@ trait BelongsToFirm
     protected static function bootBelongsToFirm()
     {
         static::addGlobalScope('firm', function (Builder $builder) {
+            //if (app()->runningInConsole()) return;
             if (Auth::check() && !Auth::user()->isPlatformAdmin()) {
                 $builder->where('firm_id', Auth::user()->firm_id);
             }

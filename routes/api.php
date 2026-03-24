@@ -22,11 +22,11 @@ Route::prefix('v1')->group(function () {
         Route::prefix('subscriptions')->group(function () {
             Route::get('/', [V1SubscriptionController::class, 'index']);
             Route::post('/', [V1SubscriptionController::class, 'store']);
+            Route::get('/default', [V1SubscriptionController::class, 'getDefaultSubscription']);
             Route::get('/{subscription}', [V1SubscriptionController::class, 'show']);
             Route::put('/{subscription}', [V1SubscriptionController::class, 'update']);
             Route::delete('/{subscription}', [V1SubscriptionController::class, 'destroy']);
             Route::post('/{subscription}/set-default', [V1SubscriptionController::class, 'setAsDefault']);
-            //Route::get('/default', [V1SubscriptionController::class, 'getDefault']);
         });
 
         // User routes (Platform Admin / Firm Admin)
@@ -48,29 +48,13 @@ Route::prefix('v1')->group(function () {
             Route::post('/{firmId}/restore', [V1LawFirmController::class, 'restore']);
             Route::delete('/{firmId}/force-delete', [V1LawFirmController::class, 'forceDelete']);
         });
-        // Route::prefix('documents')->group(function () {
-        //     Route::get('/', [DocumentController::class, 'index']);
-        //     Route::post('/', [DocumentController::class, 'store']);
-        //     Route::get('/shared-with-me', [DocumentController::class, 'sharedWithMe']);
-        //     Route::get('/{document}', [DocumentController::class, 'show']);
-        //     //Route::put('/{document}', [DocumentController::class, 'update']);
-        //     Route::delete('/{document}', [DocumentController::class, 'destroy']);
-        //     Route::post('/{document}/share', [DocumentController::class, 'share']);
-        // });
-        
+ 
         Route::middleware(['tenantIsolation'])->prefix('documents')->group(function () {
-
             Route::get('/', [DocumentController::class, 'index']);
             Route::post('/', [DocumentController::class, 'store']);
-
-            // Shared docs
             Route::get('/shared-with-me', [DocumentController::class, 'sharedWithMe']);
-
-            // Single document
             Route::get('/{document}', [DocumentController::class, 'show']);
             Route::delete('/{document}', [DocumentController::class, 'destroy']);
-
-            // Sharing
             Route::post('/{document}/share', [DocumentController::class, 'share']);
         });
     });

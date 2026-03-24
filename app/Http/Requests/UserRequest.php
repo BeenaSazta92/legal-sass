@@ -27,7 +27,17 @@ class UserRequest extends FormRequest
             'email' => 'required|string|email|max:255|unique:users,email',
             'password' => 'required|string|min:8',
             'role' => 'required|in:ADMIN,LAWYER,CLIENT',
-            'firm_id' => 'required|exists:law_firms,id',
+            //'firm_id' => 'required|exists:law_firms,id', // TODO :: make this required only when auth user is system_admin 
+            'firm_id' => [
+                'nullable',
+                'exists:law_firms,id',
+                function ($attribute, $value, $fail) {
+                    // Make required if logged-in user is SYSTEM_ADMIN
+                    if (auth()->user()->role === 'SYSTEM_ADMIN' && empty($value)) {
+                        $fail('The firm_id field is required when creating a user as SYSTEM_ADMIN.');
+                    }
+                },
+            ],
         ];
     }
 }

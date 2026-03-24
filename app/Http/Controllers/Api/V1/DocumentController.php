@@ -60,7 +60,8 @@ class DocumentController extends BaseApiController
         ]);
 
         $filename = $document->id . '_' . $originalName;
-        // default storage disk
+        // default storage disk 
+        // later add in service or create custom function
         try{
             $disk = config('filesystems.default');
             $path = Storage::disk($disk)->putFileAs(
@@ -167,7 +168,13 @@ class DocumentController extends BaseApiController
             'permission' => 'required|in:VIEW,EDIT',
         ]);
 
+        // $targetUser = User::where('id', $validated['shared_with_user_id'])
+        // ->where('firm_id', $user->firm_id)
+        // ->where('role', 'CLIENT')
+        // ->first();
+
         $targetUser = User::withoutGlobalScopes()->findOrFail($validated['shared_with_user_id']);
+        
         // Only clients in the same firm
         if (!$targetUser->isClient() || $targetUser->firm_id !== $user->firm_id) {
             return response()->json(['message' => 'Document Can only be shared with clients in your firm'], 422);
@@ -203,16 +210,9 @@ class DocumentController extends BaseApiController
             return response()->json(['message' => 'Only clients can access this endpoint'], 403);
         }
  
-        $documents = $user->sharedDocuments()->withoutGlobalScopes()->wherePivot('permission', 'VIEW')->select([
-            'documents.id',
-            'documents.title',
-            'documents.description',
-            'documents.file_path',
-            'documents.owner_id',
-            'documents.firm_id',
-            'documents.created_at',
-            'documents.updated_at',
-        ])->paginate(25);
+        $documents = Document::query()->whereHas('shares', function ($q) use ($user) {
+            $q->where('shared_with_user_id', $user->id)->where('permission', 'VIEW');
+        })->paginate(25);
         return ApiResponse::success($documents, 'Shared Documents retrieved successfully');
     }
 }

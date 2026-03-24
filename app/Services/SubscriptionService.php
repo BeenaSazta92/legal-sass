@@ -21,6 +21,13 @@ class SubscriptionService
         DB::transaction(function () use ($newDefaultId) {
             AppSetting::setSetting('default_subscription_id', $newDefaultId);
         });
+       
+        $newSubscription = Subscription::findOrFail($newDefaultId);
+        LawFirm::whereHas('currentSubscription', fn ($q) =>
+            $q->where('is_default_assigned', true)
+        )->each(fn ($firm) =>
+            $this->changeFirmSubscription($firm, $newSubscription,true)
+        );
     }
 
     /**
@@ -34,8 +41,7 @@ class SubscriptionService
         $defaultId = AppSetting::getSetting('default_subscription_id');
         $subscription = Subscription::findOrFail($defaultId);
 
-        $snapshot = FirmSubscription::createFromTemplate($firm, $subscription);
-
+        $snapshot = FirmSubscription::createFromTemplate($firm, $subscription, true);
         // Update firm to use this snapshot
         $firm->update(['current_subscription_id' => $snapshot->id]);
 
@@ -49,10 +55,9 @@ class SubscriptionService
      * @param Subscription $subscription
      * @return FirmSubscription
      */
-    public function changeFirmSubscription(LawFirm $firm, Subscription $subscription): FirmSubscription
+    public function changeFirmSubscription(LawFirm $firm, Subscription $subscription, bool $isDefaultAssigned = false): FirmSubscription
     {
-        $snapshot = FirmSubscription::createFromTemplate($firm, $subscription);
-
+        $snapshot = FirmSubscription::createFromTemplate($firm, $subscription, $isDefaultAssigned);
         $firm->update(['current_subscription_id' => $snapshot->id]);
         return $snapshot;
     }
@@ -111,12 +116,12 @@ class SubscriptionService
         return $firm->currentSubscription;
     }
 
-    public function syncFirmSubscription(LawFirm $firm, Subscription $subscription): FirmSubscription
+    public function syncFirmSubscription(LawFirm $firm, Subscription $subscription,bool $isDefaultAssigned = false): FirmSubscription
     {
         $current = $firm->currentSubscription;
 
         if (!$current) {
-            return $this->changeFirmSubscription($firm, $subscription);
+            return $this->changeFirmSubscription($firm, $subscription,$isDefaultAssigned);
         }
 
         // Compare relevant fields
@@ -132,7 +137,7 @@ class SubscriptionService
 
         if ($needsUpdate) {
             // Create a new snapshot but keep subscription_id reference updated
-            return $this->changeFirmSubscription($firm, $subscription);
+            return $this->changeFirmSubscription($firm, $subscription,$isDefaultAssigned);
         }
 
         // No change needed, return existing snapshot

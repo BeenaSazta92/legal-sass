@@ -115,15 +115,12 @@ class LawFirmController extends BaseApiController
             //$firm->update($validated);
             $firm->update(collect($validated)->except('subscription_id')->toArray());
 
-            // Handle plan change
-            // if (isset($validated['subscription_id'])) {
-            //     $plan = Subscription::findOrFail($validated['subscription_id']);
-            //     $firm->changeSubscription($plan);
-            // }
 
             if (isset($validated['subscription_id'])) {
+                // TODO :: add logic to check default subscription
                 $newPlan = Subscription::findOrFail($validated['subscription_id']);
-                $this->subscriptionService->syncFirmSubscription($firm, $newPlan);
+                $isDefault = AppSetting::getSetting('default_subscription_id') == $newPlan->id;
+                $this->subscriptionService->syncFirmSubscription($firm, $newPlan,$isDefault);
             }
             return ApiResponse::success(
                 $firm->load('currentSubscription'),

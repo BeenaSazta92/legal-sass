@@ -29,9 +29,7 @@ class SubscriptionController extends BaseApiController
         try {
             // Only platform admin can view subscription plans
             $authError = $this->authorizePlatformAdmin();
-            if ($authError) {
-                return $authError;
-            }
+            if ($authError) return $authError;
             // $subscriptions = Subscription::with('lawFirms')->paginate(15);$subscriptions = Subscription::with(['firmSubscriptions.lawFirm'])->paginate(15);
             $subscriptions = Subscription::paginate(15);
             return ApiResponse::success($subscriptions, 'Subscription plans retrieved successfully');
@@ -105,7 +103,6 @@ class SubscriptionController extends BaseApiController
                 $this->subscriptionService->changeDefault($subscription->id);
             }
             $subscription->refresh(); // Reload the model with updated data
-
             return ApiResponse::success($subscription, 'Subscription plan updated successfully');
         } catch (ValidationException $e) {
             return ApiResponse::validationError($e->errors(), 'Validation failed');
@@ -147,4 +144,37 @@ class SubscriptionController extends BaseApiController
         }
     }
 
+     /**
+     * Display a listing of all subscription plans (Platform Admin only)
+     *
+     * @return \Illuminate\Http\JsonResponse
+     */
+    public function getDefaultSubscription()
+    {
+        try {
+            // Only platform admin can access
+            $authError = $this->authorizePlatformAdmin();
+            if ($authError) {
+                return $authError;
+            }
+
+            $defaultId = AppSetting::getSetting('default_subscription_id');
+            if (!$defaultId) {
+                return ApiResponse::error('Default subscription not configured', null, 404);
+            }
+
+            $subscription = Subscription::find($defaultId);
+            if (!$subscription) {
+                return ApiResponse::error('Default subscription record not found', null, 404);
+            }
+
+            return ApiResponse::success(
+                $subscription,
+                'Default subscription retrieved successfully'
+            );
+
+        } catch (\Exception $e) {
+            return $this->handleException($e);
+        }
+    }
 }
