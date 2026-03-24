@@ -5,7 +5,7 @@ namespace App\Http\Requests;
 use Illuminate\Contracts\Validation\ValidationRule;
 use Illuminate\Foundation\Http\FormRequest;
 
-class LawFirmStoreRequest extends FormRequest
+class ShareDocumentRequest extends FormRequest
 {
     /**
      * Determine if the user is authorized to make this request.
@@ -23,9 +23,8 @@ class LawFirmStoreRequest extends FormRequest
     public function rules(): array
     {
         return [
-            'name' => 'required|string|max:255|unique:law_firms,name',
-            'subscription_id' => 'sometimes|exists:subscriptions,id',
-            'status' => 'sometimes|in:active,suspended',
+            'shared_with_user_id' => 'required|exists:users,id',
+            'permission' => 'required|in:VIEW,EDIT',
         ];
     }
 }

@@ -20,10 +20,13 @@ class LawFirm extends Model
         'active',
         'suspended',
     ];
+    protected $attributes = [
+        'status' => 'active',
+    ];
     protected $fillable = [
         'name',
         'current_subscription_id',
-        'status',
+        'status'
     ];
 
     protected static function newFactory()
@@ -84,5 +87,14 @@ class LawFirm extends Model
             throw new \Exception('Default subscription not configured');
         }
         return self::findOrFail($defaultId);
+    }
+
+    protected static function booted()
+    {
+        static::saving(function ($firm) {
+            if (!in_array($firm->status, self::STATUS)) {
+                throw new \InvalidArgumentException('Invalid status. Allowed: ' . implode(', ', self::STATUS));
+            }
+        });
     }
 }

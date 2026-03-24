@@ -6,9 +6,7 @@ use App\Http\Responses\ApiResponse;
 use App\Models\{Document,DocumentShare,User};
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Storage;
-use App\Http\Requests\StoreDocumentRequest;
-use Illuminate\Auth\Access\AuthorizationException;
-
+use App\Http\Requests\{StoreDocumentRequest,UpdateDocumentRequest,ShareDocumentRequest};
 
 class DocumentController extends BaseApiController
 {
@@ -83,39 +81,18 @@ class DocumentController extends BaseApiController
      */
     public function show(Document $document)
     {
-        $user = $this->currentUser();
-
-        // Lawyer/firms access their firm's documents
-        if (($user->isLawyer() || $user->isFirmAdmin()) && $user->firm_id === $document->firm_id) {
-            return ApiResponse::success($document);
-        }
-
-        // Clients: must be shared
-        if ($user->isClient() && $document->sharedWithUsers()->where('users.id', $user->id)->exists()) {
-            return ApiResponse::success($document);
-        }
-
-        return ApiResponse::forbidden('You do not have access to this document');
+        $this->authorize('view', $document);
+        return ApiResponse::success($document);
     }
 
     /**
      * Update a document
      * Optional: only firm admins/system admins or owner
      */
-    public function update(Request $request, Document $document)
+    public function update(UpdateDocumentRequest $request, Document $document)
     {
-        $user = $this->currentUser();
-
-        if (!($user->isPlatformAdmin() || $user->isFirmSystemAdmin() || $user->isFirmAdmin() || ($user->isLawyer() && $document->owner_id == $user->id))) {
-            return ApiResponse::forbidden();
-        }
-
-        $request->validate([
-            'title' => 'sometimes|string|max:255',
-            'description' => 'sometimes|string',
-            'file' => 'sometimes|file|mimes:pdf,docx,jpg,png|max:10240',
-        ]);
-
+        $this->authorize('update', $document);
+        $request->validated();
         if ($request->hasFile('file')) {
             // Delete old file
             if ($document->file_path && Storage::exists($document->file_path)) {
@@ -136,11 +113,7 @@ class DocumentController extends BaseApiController
      */
     public function destroy(Document $document)
     {
-        $user = $this->currentUser();
-
-        if (!($user->isFirmAdmin() || ($user->isLawyer() && $document->owner_id == $user->id))) {
-            return ApiResponse::forbidden();
-        }
+        $this->authorize('delete', $document);
         $document->shares()->delete();
         $document->delete();
         return ApiResponse::success(null, 'Document deleted successfully');
@@ -150,29 +123,16 @@ class DocumentController extends BaseApiController
      * Share a document with a client
      * POST /documents/{id}/share
      */
-    public function share(Request $request, Document $document)
+    public function share(ShareDocumentRequest $request, Document $document)
     {
         $user = $this->currentUser();
-        // Only lawyers can share
-        if (!$user->isLawyer()) {
-            throw new AuthorizationException('You are not allowed to perform this action');
-        }
-
-        // Tenant isolation ....
-        if ($user->firm_id !== $document->firm_id) {
-            throw new AuthorizationException('Cannot share documents outside your firm');
-        }
-
-        $validated = $request->validate([
-            'shared_with_user_id' => 'required|exists:users,id',
-            'permission' => 'required|in:VIEW,EDIT',
-        ]);
+        $this->authorize('share', $document);
+        $validated = $request->validated();
 
         // $targetUser = User::where('id', $validated['shared_with_user_id'])
         // ->where('firm_id', $user->firm_id)
         // ->where('role', 'CLIENT')
         // ->first();
-
         $targetUser = User::withoutGlobalScopes()->findOrFail($validated['shared_with_user_id']);
         
         // Only clients in the same firm
@@ -180,7 +140,6 @@ class DocumentController extends BaseApiController
             return response()->json(['message' => 'Document Can only be shared with clients in your firm'], 422);
         }
 
-        // Create or update share
         $share = DocumentShare::Create(
             [
                 'document_id' => $document->id,
@@ -207,12 +166,48 @@ class DocumentController extends BaseApiController
         $user = $this->currentUser();
 
         if (!$user->isClient()) {
-            return response()->json(['message' => 'Only clients can access this endpoint'], 403);
+            return response()->json(['message' => 'Only clients can access this shared documents'], 403);
         }
  
         $documents = Document::query()->whereHas('shares', function ($q) use ($user) {
             $q->where('shared_with_user_id', $user->id)->where('permission', 'VIEW');
         })->paginate(25);
         return ApiResponse::success($documents, 'Shared Documents retrieved successfully');
+    }
+    public function searchDocument(Request $request)
+    {
+        die('need to test once');
+        $user = $this->currentUser();
+        // Base query
+        $query = Document::query();
+        if ($user->isLawyer()) {
+            $query->where('owner_id', $user->id);
+        } elseif ($user->isFirmAdmin() || $user->isFirmSystemAdmin()) {
+            $query->where('firm_id', $user->firm_id);
+        } elseif ($user->isClient()) {
+            $query->whereHas('shares', function ($q) use ($user) {
+                $q->where('shared_with_user_id', $user->id);
+            });
+        } else {
+            return ApiResponse::forbidden('You do not have access to documents');
+        }
+        // Optional: search by title/description
+        if ($request->filled('search')) {
+            $search = $request->input('search');
+            $query->where(function ($q) use ($search) {
+                $q->where('title', 'like', "%{$search}%")
+                ->orWhere('description', 'like', "%{$search}%");
+            });
+        }
+
+        $documents = $query->latest()->paginate(25);
+        $documents->getCollection()->transform(function ($document) use ($user) {
+            if ($user->can('view', $document)) {
+                return $document;
+            }
+            return null;
+        });
+        $documents->setCollection($documents->getCollection()->filter());
+        return ApiResponse::success($documents, 'Documents retrieved successfully');
     }
 }
