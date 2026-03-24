@@ -8,7 +8,7 @@ use App\Http\Controllers\Api\V1\SubscriptionController as V1SubscriptionControll
 use App\Http\Controllers\Api\V1\UserController as V1UserController;
 use App\Http\Controllers\Api\V1\DocumentController;
 
-Route::prefix('v1')->group(function () {
+Route::prefix('v1')->middleware('throttle:api')->group(function () {
     // Public routes - Auth
     Route::post('/auth/register', [V1AuthController::class, 'register']);
     Route::post('/auth/login', [V1AuthController::class, 'login']);
