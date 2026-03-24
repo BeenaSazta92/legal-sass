@@ -9,10 +9,11 @@ use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Validation\ValidationException;
 use App\Http\RequestS\{AuthRegisterRequest,AuthLoginRequest};
-
+use App\Services\AuthService;
 
 class AuthController extends BaseApiController
 {
+    public function __construct(private AuthService $authService) {}
     /**
      * Register a new user
      * 
@@ -22,30 +23,8 @@ class AuthController extends BaseApiController
     public function register(AuthRegisterRequest $request)
     {
         try {
-            $validated = $request->validated();
-             // Prevent multiple SYSTEM_ADMIN safely
-            if (User::where('role', 'SYSTEM_ADMIN')->lockForUpdate()->exists()) {
-                throw new \Exception('A SYSTEM_ADMIN already exists.');
-            }
-
-            // Prevent more than one SYSTEM_ADMIN from being created
-            // if (User::where('role', 'SYSTEM_ADMIN')->exists()) {
-            //     return ApiResponse::error('A SYSTEM_ADMIN already exists. You cannot create another.', null, 400);
-            // }
-
-            $user = User::create([
-                ...$validated,
-                'role' => 'SYSTEM_ADMIN',
-                'firm_id' => null,
-            ]);
-
-            $token = $user->createToken('API Token')->plainTextToken;
-            return ApiResponse::success([
-                'user' => $user,
-                'token' => $token,
-            ], 'User registered successfully', 201);
-        } catch (ValidationException $e) {
-            return ApiResponse::validationError($e->errors(), 'Validation failed');
+            $data = $this->authService->register($request->validated());
+            return ApiResponse::success($data, 'User registered successfully', 201);
         } catch (\Exception $e) {
             return ApiResponse::error($e->getMessage(), null, 500);
         }
@@ -60,17 +39,12 @@ class AuthController extends BaseApiController
     public function login(AuthLoginRequest $request)
     {
         try {
-            $validated = $request->validated();
+            $data = $this->authService->login($request->validated());
 
-            if (!Auth::attempt($validated)) {
+            if (!$data) {
                 return ApiResponse::unauthorized('Invalid email or password');
             }
-            $user = Auth::user();
-            $token = $user->createToken('API Token')->plainTextToken;
-            return ApiResponse::success([
-                'user' => $user,
-                'token' => $token,
-            ], 'Logged in successfully');
+            return ApiResponse::success($data, 'Logged in successfully');
         } catch (ValidationException $e) {
             return ApiResponse::validationError($e->errors(), 'Validation failed');
         } catch (\Exception $e) {

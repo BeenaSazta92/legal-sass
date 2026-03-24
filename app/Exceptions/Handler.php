@@ -49,12 +49,17 @@ class Handler extends ExceptionHandler
     public function render($request, Throwable $e)
     {
         if ($e instanceof AuthorizationException) {
-            return response()->json([
-                'success' => false,
-                'message' => 'You are not authorized to perform this action'
-            ], 403);
+            return ApiResponse::error(
+                $e->getMessage() ?: 'You are not authorized to perform this action',
+                null,
+                403
+            );
         }
-
+        if ($e instanceof AuthenticationException) {
+            return ApiResponse::unauthorized(
+                $e->getMessage() ?: 'You are not authorized to perform this action'
+            );
+        }
         return parent::render($request, $e);
     }
 

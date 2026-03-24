@@ -27,10 +27,8 @@ class SubscriptionController extends BaseApiController
     public function index()
     {
         try {
-            // Only platform admin can view subscription plans
             $authError = $this->authorizePlatformAdmin();
             if ($authError) return $authError;
-            // $subscriptions = Subscription::with('lawFirms')->paginate(15);$subscriptions = Subscription::with(['firmSubscriptions.lawFirm'])->paginate(15);
             $subscriptions = Subscription::paginate(15);
             return ApiResponse::success($subscriptions, 'Subscription plans retrieved successfully');
         } catch (\Exception $e) {
@@ -47,12 +45,9 @@ class SubscriptionController extends BaseApiController
     public function store(SubscriptionRequest $request)
     {
         try {
-            // Only platform admin can create subscription plans
             $authError = $this->authorizePlatformAdmin();
             if ($authError) return $authError;
-
             $validated = $request->validated();
-
             $subscription = Subscription::create($validated);
             if ($request->boolean('is_default')) {
                 $this->subscriptionService->changeDefault($subscription->id);
@@ -120,11 +115,8 @@ class SubscriptionController extends BaseApiController
     public function destroy(Subscription $subscription)
     {
         try {
-            // Only platform admin can delete subscription plans
             $authError = $this->authorizePlatformAdmin();
             if ($authError) return $authError;
-
-            // Check if subscription is being used by any firms
             if ($subscription->firmSubscriptions()->count() > 0) {
                 return ApiResponse::error(
                     'Cannot delete subscription plan that is currently assigned to law firms',
@@ -136,7 +128,6 @@ class SubscriptionController extends BaseApiController
             if ($defaultId && $defaultId == $subscription->id) {
                 AppSetting::setSetting('default_subscription_id', null);
             }
-
             $subscription->delete();
             return ApiResponse::success(null, 'Subscription plan deleted successfully');
         } catch (\Exception $e) {
@@ -152,22 +143,16 @@ class SubscriptionController extends BaseApiController
     public function getDefaultSubscription()
     {
         try {
-            // Only platform admin can access
             $authError = $this->authorizePlatformAdmin();
-            if ($authError) {
-                return $authError;
-            }
-
+            if ($authError) return $authError;
             $defaultId = AppSetting::getSetting('default_subscription_id');
             if (!$defaultId) {
                 return ApiResponse::error('Default subscription not configured', null, 404);
             }
-
             $subscription = Subscription::find($defaultId);
             if (!$subscription) {
                 return ApiResponse::error('Default subscription record not found', null, 404);
             }
-
             return ApiResponse::success(
                 $subscription,
                 'Default subscription retrieved successfully'

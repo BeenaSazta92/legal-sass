@@ -14,10 +14,6 @@ class Subscription extends Model
         'max_documents_per_user',
     ];
 
-    // public function lawFirms()
-    // {
-    //     return $this->hasMany(LawFirm::class);
-    // }
     public function firmSubscriptions()
     {
         return $this->hasMany(FirmSubscription::class);

@@ -38,10 +38,6 @@ class LawFirm extends Model
         return $this->belongsTo(FirmSubscription::class, 'current_subscription_id');
     }
 
-    // public function subscription()
-    // {
-    //     return $this->belongsTo(Subscription::class);
-    // }
 
     public function users()
     {

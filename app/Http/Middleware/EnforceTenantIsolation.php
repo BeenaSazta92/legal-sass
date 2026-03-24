@@ -11,9 +11,11 @@ class EnforceTenantIsolation
     {
         $user = $request->user();
         if (!$user) {
-            return response()->json(['message' => 'Unauthenticated'], 401);
+            return response()->json(['message' => 'Authentication required'], 401);
         }
-
+        if (!$user->firm_id) {
+            return response()->json(['message' => 'No firm assigned, you are not authorized to perform this action'], 403);
+        }
         // Block suspended firms
         if ($user->firm && $user->firm->status === 'suspended') {
             return response()->json(['message' => 'Firm is suspended'], 403);
@@ -23,5 +25,4 @@ class EnforceTenantIsolation
         $request->attributes->set('user_role', $request->user()->role);
         return $next($request);
     }
- 
 }

@@ -18,15 +18,20 @@ class DocumentController extends BaseApiController
     public function index()
     {
         $user = $this->currentUser();
-
-        if ($user->isLawyer() || $user->isFirmAdmin() || $user->isFirmSystemAdmin()) {
-            $documents = Document::where('firm_id', $user->firm_id)->paginate(25);
-        } elseif ($user->isClient()) {
-            $documents = $user->sharedDocuments()->paginate(25);
+        $documents = Document::query();
+        if ($user->isClient()) {
+            $documents = $documents->whereHas('shares', function ($q) use ($user) {
+                $q->where('shared_with_user_id', $user->id);
+            });
+        } elseif ($user->isLawyer()) {
+            $documents = $documents->where('owner_id', $user->id);
+        } elseif ($user->isFirmAdmin()) {
+            $documents = $documents->where('firm_id', $user->firm_id);
         } else {
-            return ApiResponse::forbidden();
+            return ApiResponse::error('You do not have access to any documents', null, 403);
         }
-        return ApiResponse::success($documents, 'Documents retrieved successfully');
+        $documents = $documents->get();
+        return ApiResponse::success($documents, 'Accessible documents retrieved successfully');
     }
 
     /**
@@ -40,39 +45,19 @@ class DocumentController extends BaseApiController
         }
 
         $data = $request->validated();
-
-        // Check subscription limit
         $docCount = Document::where('owner_id', $user->id)->count();
         if ($docCount >= $user->firm->currentSubscription->max_documents_per_user) {
             return ApiResponse::error('Document upload limit reached', null, 422);
         }
-        //$path = $request->file('file')->store('documents');
-        $file = $request->file('file');
-        $originalName = preg_replace('/[^A-Za-z0-9.\-_]/', '_', $file->getClientOriginalName());
-
+        
         $document = Document::create([
             ...$data,
             'file_path' => '',//$path,
             'owner_id' => $user->id,
             'firm_id' => $user->firm_id,
         ]);
-
-        $filename = $document->id . '_' . $originalName;
-        // default storage disk 
-        // later add in service or create custom function
-        try{
-            $disk = config('filesystems.default');
-            $path = Storage::disk($disk)->putFileAs(
-                "documents/firm_{$user->firm_id}",
-                $file,
-                $filename
-            );
-            //$path = $file->storeAs('documents', $filename);
-            $document->update(['file_path' => $path]);
-        }catch (\Exception $e) {
-            $document->delete(); // rollback DB record
-            return ApiResponse::error('File upload failed: ' . $e->getMessage(), null, 500);
-        }
+        $path = self::upload($request);
+        $document->update(['file_path' => $path]);
         return ApiResponse::success($document, 'Document uploaded successfully', 201);
     }
 
@@ -82,7 +67,7 @@ class DocumentController extends BaseApiController
     public function show(Document $document)
     {
         $this->authorize('view', $document);
-        return ApiResponse::success($document);
+        return ApiResponse::success($document,"Document fetched successfully!");
     }
 
     /**
@@ -93,18 +78,9 @@ class DocumentController extends BaseApiController
     {
         $this->authorize('update', $document);
         $request->validated();
-        if ($request->hasFile('file')) {
-            // Delete old file
-            if ($document->file_path && Storage::exists($document->file_path)) {
-                Storage::delete($document->file_path);
-            }
-            $document->file_path = $request->file('file')->store('documents');
-        }
-
         $document->title = $request->title ?? $document->title;
         $document->description = $request->description ?? $document->description;
         $document->save();
-
         return ApiResponse::success($document, 'Document updated successfully');
     }
 
@@ -128,18 +104,11 @@ class DocumentController extends BaseApiController
         $user = $this->currentUser();
         $this->authorize('share', $document);
         $validated = $request->validated();
-
-        // $targetUser = User::where('id', $validated['shared_with_user_id'])
-        // ->where('firm_id', $user->firm_id)
-        // ->where('role', 'CLIENT')
-        // ->first();
-        $targetUser = User::withoutGlobalScopes()->findOrFail($validated['shared_with_user_id']);
-        
+        $targetUser = User::where('id', $validated['shared_with_user_id'])->where('firm_id', $user->firm_id)->where('role', 'CLIENT')->first();
         // Only clients in the same firm
         if (!$targetUser->isClient() || $targetUser->firm_id !== $user->firm_id) {
             return response()->json(['message' => 'Document Can only be shared with clients in your firm'], 422);
         }
-
         $share = DocumentShare::Create(
             [
                 'document_id' => $document->id,
@@ -150,11 +119,7 @@ class DocumentController extends BaseApiController
                 'permission' => $request->permission,
             ]
         );
-
-        return response()->json([
-            'message' => 'Document shared successfully',
-            'share' => $share,
-        ], 201);
+        return response()->json(['message' => 'Document shared successfully','share' => $share], 201);
     }
 
     /**
@@ -164,19 +129,17 @@ class DocumentController extends BaseApiController
     public function sharedWithMe(Request $request)
     {
         $user = $this->currentUser();
-
         if (!$user->isClient()) {
-            return response()->json(['message' => 'Only clients can access this shared documents'], 403);
+            return response()->json(['message' => 'Only clients can access shared documents'], 403);
         }
- 
         $documents = Document::query()->whereHas('shares', function ($q) use ($user) {
             $q->where('shared_with_user_id', $user->id)->where('permission', 'VIEW');
         })->paginate(25);
         return ApiResponse::success($documents, 'Shared Documents retrieved successfully');
     }
+
     public function searchDocument(Request $request)
     {
-        die('need to test once');
         $user = $this->currentUser();
         // Base query
         $query = Document::query();
@@ -199,7 +162,6 @@ class DocumentController extends BaseApiController
                 ->orWhere('description', 'like', "%{$search}%");
             });
         }
-
         $documents = $query->latest()->paginate(25);
         $documents->getCollection()->transform(function ($document) use ($user) {
             if ($user->can('view', $document)) {
@@ -209,5 +171,24 @@ class DocumentController extends BaseApiController
         });
         $documents->setCollection($documents->getCollection()->filter());
         return ApiResponse::success($documents, 'Documents retrieved successfully');
+    }
+
+    public static function upload($request){
+        $file = $request->file('file');
+        $originalName = preg_replace('/[^A-Za-z0-9.\-_]/', '_', $file->getClientOriginalName());
+        $filename = $document->id . '_' . $originalName;
+        // default storage disk 
+        try{
+            $disk = config('filesystems.default');
+            $path = Storage::disk($disk)->putFileAs(
+                "documents/firm_{$user->firm_id}",
+                $file,
+                $filename
+            );
+            return $path;
+        }catch (\Exception $e) {
+            $document->delete(); // rollback DB record
+            return ApiResponse::error('File upload failed: ' . $e->getMessage(), null, 500);
+        }
     }
 }

@@ -89,4 +89,15 @@ class User extends Authenticatable
             }
         });
     }
+    public function generateToken()
+    {
+        return $this->createToken('API Token')->plainTextToken;
+    }
+    public function getContext(): array
+    {
+        return [
+            'role' => $this->role,
+            'firm_id' => $this->firm_id,
+        ];
+    }
 }

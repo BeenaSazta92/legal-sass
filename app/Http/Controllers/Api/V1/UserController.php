@@ -24,8 +24,6 @@ class UserController extends BaseApiController
     public function index()
     {
         try {
-            // Only platform admins or firm admins/system admins may list users.
-            //isPlatformAdmin add this check if isPlatformAdmin should be restricted from creating user
             $currentUser = $this->currentUser();
             if ($currentUser->isLawyer() || $currentUser->isClient()) {
                 return ApiResponse::forbidden('You are not allowed to list users');
@@ -67,7 +65,6 @@ class UserController extends BaseApiController
     public function me(Request $request)
     {
         try {
-           
             $user = $request->user();//->load('firm');
             return ApiResponse::success([
                 'user' => $user,

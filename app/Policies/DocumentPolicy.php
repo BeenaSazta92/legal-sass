@@ -12,8 +12,7 @@ class DocumentPolicy
         if ($user->isLawyer()) {
             return $document->owner_id === $user->id;
         }
-
-        if ($user->isFirmAdmin() || $user->isFirmSystemAdmin()) {
+        if ($user->isFirmAdmin()) {
             return $document->firm_id === $user->firm_id;
         }
         if ($user->isClient()) {
@@ -41,6 +40,7 @@ class DocumentPolicy
         // Document must belong to the same firm
         return $user->firm_id === $document->firm_id;
     }
+    
 
 
 }
