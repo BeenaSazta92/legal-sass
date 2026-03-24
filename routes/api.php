@@ -29,7 +29,6 @@ Route::prefix('v1')->group(function () {
             Route::post('/{subscription}/set-default', [V1SubscriptionController::class, 'setAsDefault']);
         });
 
-        // User routes (Platform Admin / Firm Admin)
         Route::prefix('users')->group(function () {
             Route::get('/', [V1UserController::class, 'index']);
             Route::post('/', [V1UserController::class, 'store']);

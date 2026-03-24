@@ -136,11 +136,9 @@ class SubscriptionService
         }
 
         if ($needsUpdate) {
-            // Create a new snapshot but keep subscription_id reference updated
             return $this->changeFirmSubscription($firm, $subscription,$isDefaultAssigned);
         }
 
-        // No change needed, return existing snapshot
         return $current;
     }
 }

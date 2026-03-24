@@ -37,15 +37,13 @@ class UserService
             }
         }
 
-        // Check subscription limits
         $firm = LawFirm::findOrFail($firmId);
         $limitError = $this->checkSubscriptionLimit($firm, $data['role']);
         if ($limitError) return $limitError;
-
         return User::create([
             'name' => $data['name'],
             'email' => $data['email'],
-            'password' => Hash::make($data['password']),
+            'password' => $data['password'],
             'role' => $data['role'],
             'firm_id' => $firmId,
         ]);

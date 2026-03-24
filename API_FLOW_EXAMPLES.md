@@ -94,7 +94,6 @@ Content-Type: application/json
   "email": "another@saas.com",
   "password": "SecurePassword123",
   "role": "SYSTEM_ADMIN",
-  "firm_id": 1  // ❌ System admin cannot have firm_id!
 }
 ```
 
@@ -119,34 +118,7 @@ Content-Type: application/json
 
 ---
 
-### Scenario 4: Error - Missing Firm ID for Firm User
 
-**Request:**
-```http
-POST /api/v1/auth/register
-Content-Type: application/json
-
-{
-  "name": "John Lawyer",
-  "email": "john@johnson-law.com",
-  "password": "SecurePassword123",
-  "role": "LAWYER"
-  // ❌ Missing firm_id!
-}
-```
-
-**Response (422 Unprocessable Entity):**
-```json
-{
-  "success": false,
-  "message": "Validation failed",
-  "errors": {
-    "firm_id": [
-      "The firm id field is required when role is not SYSTEM_ADMIN."
-    ]
-  }
-}
-```
 
 ---
 
@@ -455,13 +427,6 @@ curl -X DELETE http://localhost/api/v1/firms/1 \
 
 ---
 
-## Key Takeaways
-
-1. **Platform Admin Only**: Only ONE admin can manage firms, subscriptions, and platform settings
-2. **Firm Admin**: Can manage users and documents within their firm
-3. **Clear Separation**: Platform-level operations (firm_id=NULL) vs firm-level operations (firm_id=1,2,3)
-4. **Helper Methods**: Use `$user->isPlatformAdmin()` for authorization
-5. **Response Context**: `/auth/me` shows `is_platform_admin` flag so client knows capabilities
 
 
 
